@@ -1,0 +1,524 @@
+<!--
+ELECTROMAGNETICS
+SPECIAL CLASS 2024
+
+Final Project
+VECTOR FIELD VISUALIZER
+
+GROUP 2
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vector Field Solver</title>
+
+    <!--
+    OUTSIDE TOOLS USED
+    - Math.js: https://mathjs.org/ (used for mathematical computations)
+    - MathJax: https://www.mathjax.org/ (used for rendering mathematical expressions)
+    - Plotly: https://plotly.com/javascript/ (used for visualizing vector fields)
+    -->
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.min.js"></script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="https://cdn.plot.ly/plotly-2.20.0.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Product+Sans:wght@400;700&display=swap');
+
+        body {
+            font-family: 'Product Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background-color: #f3e5f5; /* Light purple background */
+        }
+        .container {
+            text-align: left;
+            background: rgba(255, 255, 255, 0.9); /* Semi-transparent white */
+            backdrop-filter: blur(10px); /* Blur effect */
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+            max-width: 800px;
+            width: 90%;
+            margin-top: 20px; /* Add space before the container */
+        }
+        .input-box {
+            border: 2px solid #7b1fa2; /* Purple border */
+            border-radius: 15px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        input[type="text"] {
+            width: 80%;
+            padding: 12px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+        input[type="text"]:focus {
+            border-color: #7b1fa2;
+            outline: none;
+        }
+        .output {
+            margin-top: 20px;
+            text-align: left;
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+        }
+        .error {
+            color: red;
+        }
+        #visualization, #curlVisualization, #divergenceVisualization {
+            margin-top: 20px;
+            width: 100%;
+            height: 500px;
+            display: none;
+        }
+        .button-container {
+            margin-top: 20px;
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+        .button-container select, .button-container button {
+            padding: 12px 24px;
+            font-size: 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+        .button-container select {
+            border: 2px solid #7b1fa2; /* Purple border */
+            background-color: transparent;
+            color: #7b1fa2; /* Purple text */
+        }
+        .button-container select:hover {
+            background-color: #7b1fa2; /* Purple background */
+            color: white;
+        }
+        .button-container button {
+            border: none;
+            background-color: #7b1fa2; /* Purple */
+            color: white;
+        }
+        .button-container button:hover {
+            background-color: #4a148c; /* Darker purple */
+        }
+        .loading {
+            display: block;
+            text-align: center;
+            font-weight: bold;
+            font-size: 18px;
+            font-family: 'Product Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            margin-top: 20px;
+        }
+        .spinner {
+            border: 4px solid rgba(123, 31, 162, 0.3); /* Light purple */
+            border-top: 4px solid #7b1fa2; /* Purple */
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        @keyframes dots {
+            0%, 10% { content: "Computing    Wait lang po, sir Mervs!"; }
+            20% { content: "Computing.   Wait lang po, sir Mervs!"; }
+            60% { content: "Computing..  Wait lang po, sir Mervs!"; }
+            80%, 100% { content: "Computing... Wait lang po, sir Mervs!"; }
+        }
+        .loading span::after {
+            content: "Computing";
+            animation: dots 1.5s steps(4, end) infinite;
+        }
+        header {
+            width: 100%;
+            background: rgba(123, 31, 162, 0.9); /* Semi-transparent purple */
+            backdrop-filter: blur(10px); /* Blur effect */
+            color: white;
+            padding: 10px 0;
+            text-align: center;
+            font-size: 16px;
+            font-weight: bold;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+        footer {
+            width: 100%;
+            background: rgba(74, 20, 140, 0.9); /* Semi-transparent darker purple */
+            backdrop-filter: blur(10px); /* Blur effect */
+            color: white;
+            padding: 10px 0;
+            text-align: center;
+            position: fixed;
+            bottom: 0;
+            font-size: 14px;
+        }
+        .label {
+            font-family: 'Product Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            font-size: 18px;
+        }
+    </style>
+</head>
+
+
+<body>
+
+    <!--
+    USER INTERFACE LAYOUT
+    -->
+
+    <header>
+      VECTOR FIELD VISUALIZER
+    <a href="https://ibb.co/5cfm9pJ" style="display: inline-block; vertical-align: middle;">
+      <img src="https://i.ibb.co/JpphfkP/Vector-Logo-White.png" alt="Vector-Logo" border="0" style="height: 16px; vertical-align: middle;">
+    </a>
+    </header>
+
+    <a href="https://imgbb.com/" style="align-self: center; margin-top: 20px;">
+        <img src="https://i.ibb.co/8MkJQtP/Logo-Logo-Logo.png" alt="Logo-Logo-Logo" border="0" style="width: 200px; height: auto;" />
+    </a>
+
+    <div class="container">
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <h1 style="font-weight: bold; margin: 0;">Vector Field Visualizer</h1>
+            <a href="https://ibb.co/5cfm9pJ"><img src="https://i.ibb.co/C0TgtCS/Vector-Logo.png" alt="Vector-Logo" border="0" style="height: 50px;"></a>
+        </div>
+        <p class="label">Compute and visualize the curl and divergence of your vector field.</p>
+        <p class="label">Enter the components of the vector field (F = [P(x, y, z), Q(x, y, z), R(x, y, z)]):</p>
+        <div class="input-box">
+            <input id="P" type="text" placeholder="P(x, y, z)" oninput="compute()" />
+            <input id="Q" type="text" placeholder="Q(x, y, z)" oninput="compute()" />
+            <input id="R" type="text" placeholder="R(x, y, z)" oninput="compute()" />
+        </div>
+        <div class="button-container">
+            <select onchange="setExampleEquations(this.value)">
+                <option value="">Select Example Equation</option>
+                <option value="1">[y + 2z, x - z, 2x - y]</option>
+                <option value="2">[x, y, 0]</option>
+                <option value="3">[-x, -y, 0]</option>
+                <option value="4">[x^2, y^2, 0]</option>
+                <option value="5">[y, x, 0]</option>
+                <option value="6">[-y, x, 0]</option>
+                <option value="7">[y, -x, 0]</option>
+                <option value="8">[y^2, x^2, 0]</option>
+            </select>
+            <button onclick="clearFields()">Clear</button>
+        </div>
+        <div class="output" id="output"></div>
+        <p class="label" id="inputLabel" style="display: none;">Input Vector Field</p>
+        <div id="visualization" style="display: none;"></div>
+        <p class="label" id="divergenceLabel" style="display: none;">Divergence</p>
+        <div id="divergenceVisualization" style="display: none;"></div>
+        <p class="label" id="constantDivergence" style="display: none;">Divergence is a constant: </p>
+        <p class="label" id="curlLabel" style="display: none;">Curl</p>
+        <div id="curlVisualization" style="display: none;"></div>
+        <p class="label">Created by Electromagnetics Special Class 2024, Group 2</p>
+    </div>
+    <footer>
+        🧲 Created by Electromagnetics Special Class 2024, Group 2 ⚡
+    </footer>
+
+    <!--
+    COMPUTATION AND VISUALIZATION FUNCTIONS
+    -->
+
+    <script>
+        function validateInput(input) {
+            try {
+                if (!input.trim()) return true; // Allow empty inputs
+                const parsed = math.parse(input);
+                const variables = parsed.filter(node => node.isSymbolNode).map(node => node.name);
+                const invalidVars = variables.filter(v => !['x', 'y', 'z', 'e', 'pi'].includes(v) && !math[v]);
+
+                if (invalidVars.length > 0) {
+                    throw new Error(`Invalid variable(s) detected: ${invalidVars.join(', ')}`);
+                }
+
+                return true;
+            } catch (error) {
+                throw new Error(`Invalid mathematical expression: ${error.message}`);
+            }
+        }
+
+        function renderMath(outputDiv) {
+            MathJax.typesetPromise([outputDiv]);
+        }
+
+        function visualizeVectorField(P, Q, R) {
+            const x = math.range(-5, 5, 1).toArray();
+            const y = math.range(-5, 5, 1).toArray();
+            const z = math.range(-5, 5, 1).toArray();
+
+            const u = [];
+            const v = [];
+            const w = [];
+
+            x.forEach((xi) => {
+                y.forEach((yi) => {
+                    z.forEach((zi) => {
+                        const px = P ? math.evaluate(P, { x: xi, y: yi, z: zi }) : 0;
+                        const qy = Q ? math.evaluate(Q, { x: xi, y: yi, z: zi }) : 0;
+                        const rz = R ? math.evaluate(R, { x: xi, y: yi, z: zi }) : 0;
+
+                        u.push(px);
+                        v.push(qy);
+                        w.push(rz);
+                    });
+                });
+            });
+
+            const data = [
+                {
+                    type: 'cone',
+                    x: Array(x.length * y.length * z.length).fill().map((_, i) => x[Math.floor(i / (y.length * z.length))]),
+                    y: Array(x.length * y.length * z.length).fill().map((_, i) => y[Math.floor((i / z.length) % y.length)]),
+                    z: Array(x.length * y.length * z.length).fill().map((_, i) => z[i % z.length]),
+                    u: u,
+                    v: v,
+                    w: w,
+                    sizemode: 'scaled',
+                    sizeref: 2,
+                    colorscale: [[0, 'white'], [1, 'purple']],
+                    showscale: true
+                }
+            ];
+
+            Plotly.newPlot('visualization', data);
+            document.getElementById('inputLabel').style.display = 'block';
+            document.getElementById('visualization').style.display = 'block';
+        }
+
+        function visualizeCurlField(curlX, curlY, curlZ) {
+            const x = math.range(-5, 5, 1).toArray();
+            const y = math.range(-5, 5, 1).toArray();
+            const z = math.range(-5, 5, 1).toArray();
+
+            const u = [];
+            const v = [];
+            const w = [];
+
+            x.forEach((xi) => {
+                y.forEach((yi) => {
+                    z.forEach((zi) => {
+                        const cx = curlX ? math.evaluate(curlX, { x: xi, y: yi, z: zi }) : 0;
+                        const cy = curlY ? math.evaluate(curlY, { x: xi, y: yi, z: zi }) : 0;
+                        const cz = curlZ ? math.evaluate(curlZ, { x: xi, y: yi, z: zi }) : 0;
+
+                        u.push(cx);
+                        v.push(cy);
+                        w.push(cz);
+                    });
+                });
+            });
+
+            const data = [
+                {
+                    type: 'cone',
+                    x: Array(x.length * y.length * z.length).fill().map((_, i) => x[Math.floor(i / (y.length * z.length))]),
+                    y: Array(x.length * y.length * z.length).fill().map((_, i) => y[Math.floor((i / z.length) % y.length)]),
+                    z: Array(x.length * y.length * z.length).fill().map((_, i) => z[i % z.length]),
+                    u: u,
+                    v: v,
+                    w: w,
+                    sizemode: 'scaled',
+                    sizeref: 2,
+                    colorscale: [[0, 'white'], [1, 'purple']],
+                    showscale: true
+                }
+            ];
+
+            Plotly.newPlot('curlVisualization', data);
+            document.getElementById('curlLabel').style.display = 'block';
+            document.getElementById('curlVisualization').style.display = 'block';
+        }
+
+        function visualizeDivergenceField(div) {
+            const x = math.range(-5, 5, 1).toArray();
+            const y = math.range(-5, 5, 1).toArray();
+            const z = math.range(-5, 5, 1).toArray();
+
+            const values = [];
+
+            x.forEach((xi) => {
+                y.forEach((yi) => {
+                    z.forEach((zi) => {
+                        const value = div ? math.evaluate(div, { x: xi, y: yi, z: zi }) : 0;
+                        values.push(value);
+                    });
+                });
+            });
+
+            const data = [
+                {
+                    type: 'scatter3d',
+                    mode: 'markers',
+                    x: Array(x.length * y.length * z.length).fill().map((_, i) => x[Math.floor(i / (y.length * z.length))]),
+                    y: Array(x.length * y.length * z.length).fill().map((_, i) => y[Math.floor((i / z.length) % y.length)]),
+                    z: Array(x.length * y.length * z.length).fill().map((_, i) => z[i % z.length]),
+                    marker: {
+                        size: 5,
+                        color: values,
+                        colorscale: [[0, 'white'], [1, 'purple']],
+                        showscale: true
+                    }
+                }
+            ];
+
+            Plotly.newPlot('divergenceVisualization', data);
+            document.getElementById('divergenceLabel').style.display = 'block';
+            document.getElementById('divergenceVisualization').style.display = 'block';
+        }
+
+        function setExampleEquations(value) {
+            const examples = {
+                "1": ["y + 2z", "x - z", "2x - y"],
+                "2": ["x", "y", "0"],
+                "3": ["-x", "-y", "0"],
+                "4": ["x^2", "y^2", "0"],
+                "5": ["y", "x", "0"],
+                "6": ["-y", "x", "0"],
+                "7": ["y", "-x", "0"],
+                "8": ["y^2", "x^2", "0"]
+            };
+            const [P, Q, R] = examples[value] || ["", "", ""];
+            document.getElementById("P").value = P;
+            document.getElementById("Q").value = Q;
+            document.getElementById("R").value = R;
+            compute();
+        }
+
+        function compute() {
+            const P = document.getElementById("P").value;
+            const Q = document.getElementById("Q").value;
+            const R = document.getElementById("R").value;
+
+            const output = document.getElementById("output");
+
+            if (!P && !Q && !R) {
+                output.innerHTML = "";
+                document.getElementById("visualization").style.display = 'none';
+                document.getElementById("curlVisualization").style.display = 'none';
+                document.getElementById("divergenceVisualization").style.display = 'none';
+                document.getElementById('inputLabel').style.display = 'none';
+                document.getElementById('curlLabel').style.display = 'none';
+                document.getElementById('divergenceLabel').style.display = 'none';
+                document.getElementById('constantDivergence').style.display = 'none';
+                return;
+            }
+
+            output.innerHTML = `
+                <div class='spinner'></div>
+                <span class='loading'><span></span></span>
+            `;
+
+            setTimeout(() => {
+                try {
+                    validateInput(P);
+                    validateInput(Q);
+                    validateInput(R);
+
+                    const partial = (expr, variable) => {
+                        try {
+                            return math.derivative(expr, variable).toString();
+                        } catch (error) {
+                            throw new Error(`Error in calculating derivative with respect to ${variable}: ${error.message}`);
+                        }
+                    };
+
+                    const dPdx = P ? partial(P, 'x') : '0';
+                    const dQdy = Q ? partial(Q, 'y') : '0';
+                    const dRdz = R ? partial(R, 'z') : '0';
+                    const div = `${dPdx} + ${dQdy} + ${dRdz}`;
+
+                    const dRdy = R ? partial(R, 'y') : '0';
+                    const dQdz = Q ? partial(Q, 'z') : '0';
+                    const dPdz = P ? partial(P, 'z') : '0';
+                    const dRdx = R ? partial(R, 'x') : '0';
+                    const dQdx = Q ? partial(Q, 'x') : '0';
+                    const dPdy = P ? partial(P, 'y') : '0';
+
+                    const curlX = `(${dRdy}) - (${dQdz})`;
+                    const curlY = `(${dPdz}) - (${dRdx})`;
+                    const curlZ = `(${dQdx}) - (${dPdy})`;
+
+                    output.innerHTML = `
+                        Input Vector Field: \\[
+                        \\begin{bmatrix}
+                        ${P || "0"} \\\\
+                        ${Q || "0"} \\\\
+                        ${R || "0"}
+                        \\end{bmatrix}
+                        \\] <br>
+                        Divergence: \\[
+                        \\nabla \\cdot \\mathbf{F} = \\frac{\\partial F_x}{\\partial x} + \\frac{\\partial F_y}{\\partial y} + \\frac{\\partial F_z}{\\partial z} = ${div}
+                        \\] <br>
+                        Curl: \\[
+                        \\nabla \\times \\mathbf{F} = \\begin{bmatrix}
+                        \\frac{\\partial F_z}{\\partial y} - \\frac{\\partial F_y}{\\partial z} \\\\
+                        \\frac{\\partial F_x}{\\partial z} - \\frac{\\partial F_z}{\\partial x} \\\\
+                        \\frac{\\partial F_y}{\\partial x} - \\frac{\\partial F_x}{\\partial y}
+                        \\end{bmatrix} = \\begin{bmatrix}
+                        ${curlX} \\\\
+                        ${curlY} \\\\
+                        ${curlZ}
+                        \\end{bmatrix}
+                        \\]
+                    `;
+                    renderMath(output);
+
+                    visualizeVectorField(P, Q, R);
+                    visualizeCurlField(curlX, curlY, curlZ);
+
+                    // Check if divergence is a constant or includes a variable
+                    const isConstant = !/[xyz]/.test(div);
+                    if (isConstant) {
+                        document.getElementById('constantDivergence').innerHTML = `Divergence is a constant: ${div}`;
+                        document.getElementById('constantDivergence').style.display = 'block';
+                    } else {
+                        document.getElementById('constantDivergence').style.display = 'none';
+                        visualizeDivergenceField(div);
+                    }
+
+                } catch (error) {
+                    output.innerHTML = `<span class='error'>Error: ${error.message}</span>`;
+                }
+            }, 500);
+        }
+
+        function clearFields() {
+            document.getElementById("P").value = "";
+            document.getElementById("Q").value = "";
+            document.getElementById("R").value = "";
+            document.getElementById("output").innerHTML = "";
+            document.getElementById("visualization").style.display = 'none';
+            document.getElementById("curlVisualization").style.display = 'none';
+            document.getElementById("divergenceVisualization").style.display = 'none';
+            document.getElementById('inputLabel').style.display = 'none';
+            document.getElementById('curlLabel').style.display = 'none';
+            document.getElementById('divergenceLabel').style.display = 'none';
+            document.getElementById('constantDivergence').style.display = 'none';
+        }
+    </script>
+</body>
+</html>
